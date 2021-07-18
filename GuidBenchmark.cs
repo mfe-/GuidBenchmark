@@ -11,6 +11,7 @@ namespace GuidBenchmark
     [MemoryDiagnoser]
     public class GuidComparision
     {
+        //guids of edge2
         Guid U;
         Guid V;
         Edge? edge1;
