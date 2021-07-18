@@ -11,7 +11,8 @@ namespace GuidBenchmark
 #if DEBUG
             var guidComparision = new GuidComparision();
             guidComparision.GlobalSetup();
-            guidComparision.StringGuidComparision_EqualsStringIsEdge();
+            guidComparision.GuidComparision_EqualsGuidEdge();
+            guidComparision.GuidComparision_EqualsGuidUnsafeEdge();
             return;
 #endif
             BenchmarkRunner.Run<GuidComparision>();
