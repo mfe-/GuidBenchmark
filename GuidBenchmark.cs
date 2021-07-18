@@ -27,11 +27,6 @@ namespace GuidBenchmark
             IEdge edge = (IEdge)obj;
             return ($"{U}{V}" == $"{edge.U}{edge.V}" || $"{U}{V}" == $"{edge.V}{edge.U}");
         }
-
-        public void StringGuidComparision_EqualsString()
-        {
-            var result = EqualsString(edge1);
-        }
         public bool EqualsStringIsEdge(object? obj)
         {
             if (obj is IEdge edge)
@@ -41,17 +36,22 @@ namespace GuidBenchmark
             return false;
         }
         [Benchmark]
-        public void StringGuidComparision_EqualsStringIsEdge()
+        public bool StringGuidComparision_EqualsStringBoxingEdge()
         {
-            var result = EqualsStringIsEdge(edge1);
+            return EqualsString(edge1);
         }
         [Benchmark]
-        public void GuidComparision_EqualsGuidEdge()
+        public bool StringGuidComparision_EqualsStringIsEdge()
+        {
+            return EqualsStringIsEdge(edge1);
+        }
+        [Benchmark]
+        public bool GuidComparision_EqualsSpanTryWriteBytesGuidEdge()
         {
             //edge1.V = Guid.NewGuid(); -uncommenting this should return false
-            var result = EqualsGuidEdge(edge1);
+            return EqualsSpanTryWriteBytesGuidEdge(edge1);
         }
-        public bool EqualsGuidEdge(object? obj)
+        public bool EqualsSpanTryWriteBytesGuidEdge(object? obj)
         {
             if (!(obj is IEdge)) return false;
             IEdge edge = (IEdge)obj;
@@ -85,35 +85,39 @@ namespace GuidBenchmark
             return result1.SequenceEqual(result2);
         }
 
-        private Span<byte> GuidSpan(Guid v, Guid u, ref Span<byte> guidbyteoutput)
-        {
-
-            return guidbyteoutput;
-        }
         [Benchmark]
-        public void GuidComparision_EqualsGuidUnsafeEdge()
+        public bool GuidComparision_TransitiveComparisionSse2IsSupported()
         {
-            var result = EqualsGuidUnsafeEdge(edge1);
+            return EqualsTransitiveComparisionSse2IsSupported(edge1);
         }
 
-        private bool EqualsGuidUnsafeEdge(object? obj)
+        private bool EqualsTransitiveComparisionSse2IsSupported(object? obj)
         {
             if (!(obj is IEdge)) return false;
             IEdge edge = (IEdge)obj;
 
-            return TransitiveComparision(V, U, edge.U, edge.V);
+            //return TransitiveComparisionSse2IsSupported(V, U, edge.U, edge.V);
+            //if (Sse2.IsSupported)
+            var result = Sse2.Or(Unsafe.As<Guid, Vector128<byte>>(ref V), Unsafe.As<Guid, Vector128<byte>>(ref U));
+            Guid guidU = edge.U;
+            Guid guidV = edge.V;
+            var result1 = Sse2.Or(Unsafe.As<Guid, Vector128<byte>>(ref guidU), Unsafe.As<Guid, Vector128<byte>>(ref guidV));
+            return result.Equals(result1);
+
             //return Xor(V, U, edge.U, Guid.NewGuid()); //uncommenting this should evaluate to false
         }
-
-        public bool TransitiveComparision(Guid edge1V, Guid edge1U, Guid edge2V, Guid edge2U)
+        [Benchmark]
+        public bool GuidComparision_EqualsGuidSpanEdgeMemoryMarshalCreateSpan()
         {
-            if (Sse2.IsSupported)
-            {
-                var result = Sse2.Or(Unsafe.As<Guid, Vector128<byte>>(ref edge1V), Unsafe.As<Guid, Vector128<byte>>(ref edge1U));
-                var result1 = Sse2.Or(Unsafe.As<Guid, Vector128<byte>>(ref edge2V), Unsafe.As<Guid, Vector128<byte>>(ref edge2U));
-                return result.Equals(result1);
-            }
+            return EqualsGuidSpanEdgeMemoryMarshalCreateSpan(edge1);
+        }
 
+        private bool EqualsGuidSpanEdgeMemoryMarshalCreateSpan(object? obj)
+        {
+            if (!(obj is IEdge)) return false;
+            IEdge edge = (IEdge)obj;
+
+            //return TransitiveComparisionMemoryMarshalCreateSpan(V, U, edge.U, edge.V);
             //Span<byte> guidspan1 = stackalloc byte[16];
             //Span<byte> guidspan2 = stackalloc byte[16];
             Span<byte> guidspanresult = stackalloc byte[16];
@@ -123,17 +127,19 @@ namespace GuidBenchmark
             //edge1V.TryWriteBytes(guidspan1);
 
 
-            var spanA = MemoryMarshal.CreateSpan(ref Unsafe.As<Guid, byte>(ref edge1V), 16);
-            var spanB = MemoryMarshal.CreateSpan(ref Unsafe.As<Guid, byte>(ref edge1U), 16);
-            var spanC = MemoryMarshal.CreateSpan(ref Unsafe.As<Guid, byte>(ref edge2V), 16);
-            var spanD = MemoryMarshal.CreateSpan(ref Unsafe.As<Guid, byte>(ref edge2U), 16);
+            var spanA = MemoryMarshal.CreateSpan(ref Unsafe.As<Guid, byte>(ref V), 16);
+            var spanB = MemoryMarshal.CreateSpan(ref Unsafe.As<Guid, byte>(ref U), 16);
+            Guid guidU = edge.U;
+            Guid guidV = edge.V;
+            var spanC = MemoryMarshal.CreateSpan(ref Unsafe.As<Guid, byte>(ref guidU), 16);
+            var spanD = MemoryMarshal.CreateSpan(ref Unsafe.As<Guid, byte>(ref guidV), 16);
 
             OrSpan(spanA, spanB, ref guidspanresult);
             OrSpan(spanC, spanD, ref guidspanresult1);
 
             return guidspanresult.SequenceEqual(guidspanresult1);
+            //return Xor(V, U, edge.U, Guid.NewGuid()); //uncommenting this should evaluate to false
         }
-
         private static void OrSpan(Span<byte> guidspan1, Span<byte> guidspan2, ref Span<byte> orResult)
         {
             orResult[0] = (byte)(guidspan1[0] | guidspan2[0]);
